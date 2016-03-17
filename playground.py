@@ -7,6 +7,8 @@ import pprint
 from robot.api import ExecutionResult
 
 from mongobot.reader.robot_results_parser import RobotResultsParser
+from mongobot.reader.robot_mongodb import RobotDatabase
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -27,7 +29,10 @@ logging.basicConfig(level=logging.DEBUG)
 # parser = RobotResultsParser('output3.xml')
 # parser.demo()
 
-parser = RobotResultsParser(sys.argv[1], include_keywords=True)
+RDatabase = RobotDatabase('host', 'port','message')
+db=RDatabase._connection
+
+parser = RobotResultsParser(sys.argv[1], include_keywords=True, db=db)
 suite = parser.test_run.suite
 # doc = parser._parse_test(suite.suites[0].tests[0])
 doc = parser._parse_suite(suite)
@@ -38,4 +43,8 @@ doc = parser._parse_suite(suite)
 print pprint.pprint(doc, indent=4)
 
 parser.traverse_suites()
-# parser.suite_test_cases()
+
+#print dir(db)
+cursor=RDatabase.get_collection(db)
+for doc in cursor:
+	print pprint.pprint(doc, indent=4)

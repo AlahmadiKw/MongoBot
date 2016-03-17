@@ -5,6 +5,7 @@ import re
 from bson import ObjectId 
 from robot.api import ExecutionResult
 
+
 logger = logging.getLogger(__name__)
 
 class RobotResultsParser(object):
@@ -13,8 +14,9 @@ class RobotResultsParser(object):
     def __init__(self, xml_file, include_keywords=False, db=None, run_name=''):
         self.xml_file = xml_file
         self.include_keywords = include_keywords
+        self.db = db
         self.test_run = ExecutionResult(xml_file, include_keywords=include_keywords)
-        self.test_run_id = ObjectId()
+        self.test_run_id = ObjectId().__str__()
         run_name = 'run_%s' % datetime.utcnow().strftime('%Y_%m_%d') \
                    if not run_name else run_name
         self.test_run_doc = { '_id': ObjectId(), 
@@ -22,25 +24,25 @@ class RobotResultsParser(object):
                               'run_name': run_name
                               }
         logger.info('Parsing xml file for run %s' % run_name)
-        # inser run_id into runs collection 
-
-
+        
+        self.db.reports.insert_one(self.test_run_doc)
+       
     def traverse_suites(self):
         self._traverse_suites(self.test_run.suite)
-
+        
 
     def _traverse_suites(self, suite):
         """ Recusivelly iterate through suites hierarchy""" 
 
         logger.debug("traversing suite '%s'", suite.longname)
         suite_doc = self._parse_suite(suite)
-        # insert suite_doc into suites collection 
-        pass 
-
+        self.db.reports.insert_one(suite_doc) 
+       
         if suite.tests:
+          
             for test in suite.tests: 
                 test_doc = self._parse_test(test)
-                # add it to tests collection (mongo)
+                self.db.reports.insert_one(test_doc)
 
         for child_suite in suite.suites:
             self._traverse_suites(child_suite)
@@ -102,7 +104,7 @@ class RobotResultsParser(object):
                                   strftime('%Y-%m-%d %H:%M:%S')
         test_doc['starttime'] = self._format_robot_timestamp(test.starttime).\
                                   strftime('%Y-%m-%d %H:%M:%S')      
-        test_doc['tags'] = test.tags
+        test_doc['tags'] = [tgs.encode('utf-8') for tgs in test.tags]
         test_doc['status'] = test.status
         test_doc['test_id'] = test.id
         test_doc['message'] = test.message
@@ -110,7 +112,8 @@ class RobotResultsParser(object):
         test_doc['critical'] = test.critical
         test_doc['longname'] = test.longname
         test_doc['name'] = test.name
-        test_doc['parent'] = test.parent
+        test_doc['parent'] = str(test.parent)
+   
         test_doc['timeout'] = test.timeout
 
         test_doc['keywords'] = self._parse_keywords(test.keywords)
@@ -121,10 +124,10 @@ class RobotResultsParser(object):
 
 
     def _parse_keywords(self, keywords):
+       
         if self.include_keywords:
-            # return [self._parse_keyword(keyword, test_run_id, suite_id, test_id, keyword_id)
-            #             for keyword in keywords]
-            pass
+            return [str(keyword) for keyword in keywords]
+            
         return []
 
 
